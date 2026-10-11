@@ -40,8 +40,8 @@ fun appointmentForDisplay(items: List<ScheduleItem>, now: Long = System.currentT
     return null
 }
 
-/** Returns the next time at which [appointmentForDisplay] must advance to a following appointment. */
-fun nextAppointmentDisplayChange(items: List<ScheduleItem>, now: Long = System.currentTimeMillis()): Long? {
+/** Returns all future times at which the displayed appointment or its status can change. */
+fun appointmentDisplayChangeTimes(items: List<ScheduleItem>, now: Long = System.currentTimeMillis()): List<Long> {
     val appointments = items.filter { !it.information && it.startTime != null }.sortedBy { it.startTime }
     val changes = mutableListOf<Long>()
     appointments.forEachIndexed { index, appointment ->
@@ -52,8 +52,12 @@ fun nextAppointmentDisplayChange(items: List<ScheduleItem>, now: Long = System.c
         if (hasLaterAppointment) changes += maxOf(start, end - UPCOMING_SWITCH_BEFORE_END)
         changes += end + 1
     }
-    return changes.filter { it > now }.minOrNull()
+    return changes.asSequence().filter { it > now }.distinct().sorted().toList()
 }
+
+/** Returns the next time at which [appointmentForDisplay] or its status must be refreshed. */
+fun nextAppointmentDisplayChange(items: List<ScheduleItem>, now: Long = System.currentTimeMillis()): Long? =
+    appointmentDisplayChangeTimes(items, now).firstOrNull()
 
 fun isCurrentAppointment(item: ScheduleItem, now: Long = System.currentTimeMillis()): Boolean {
     val start = item.startTime ?: return false
@@ -63,6 +67,12 @@ fun isCurrentAppointment(item: ScheduleItem, now: Long = System.currentTimeMilli
 
 fun concurrentAppointmentCount(items: List<ScheduleItem>, item: ScheduleItem): Int =
     items.count { !it.information && it.date == item.date && it.start == item.start }
+
+internal fun shouldKeepStoredItem(item: ScheduleItem, now: Long, today: Long): Boolean = when {
+    item.information -> item.date >= today
+    item.end != null || item.duration != null -> (item.endTime ?: item.date) >= now
+    else -> item.date >= today
+}
 
 /** Replaces only days found in the new scan and keeps every other saved day. */
 fun mergeScannedDays(existing: List<ScheduleItem>, scanned: List<ScheduleItem>, now: Long = System.currentTimeMillis()): List<ScheduleItem> {
@@ -86,17 +96,23 @@ class ScheduleStore(private val context: Context) {
         }.let(::prune)
     } catch (_: Exception) { emptyList() }
     fun save(items: List<ScheduleItem>) {
+        persist(items)
+        AppointmentRefreshCoordinator.sync(context, items)
+    }
+    private fun persist(items: List<ScheduleItem>) {
         val array = JSONArray()
         items.forEach { i -> array.put(JSONObject().put("date", i.date).put("start", i.start).put("end", i.end).put("duration", i.duration).put("title", i.title).put("location", i.location).put("note", i.note).put("information", i.information).put("photoPath", i.photoPath)) }
         prefs.edit { putString("items", array.toString()) }
-        NextAppointmentWidget.refresh(context)
-        StatusNotification.sync(context, items)
     }
-    fun clear() { prefs.edit { remove("items") }; NextAppointmentWidget.refresh(context); StatusNotification.sync(context, emptyList()) }
+    fun clear() {
+        prefs.edit { remove("items") }
+        AppointmentRefreshCoordinator.sync(context, emptyList())
+    }
     private fun prune(items: List<ScheduleItem>): List<ScheduleItem> {
         val today = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
-        val kept = items.filter { if (it.information) it.date >= today else (it.endTime ?: it.date) >= System.currentTimeMillis() }
-        if (kept.size != items.size) save(kept)
+        val now = System.currentTimeMillis()
+        val kept = items.filter { shouldKeepStoredItem(it, now, today) }
+        if (kept.size != items.size) persist(kept)
         return kept.sortedWith(compareBy<ScheduleItem> { it.date }.thenBy { it.start ?: Int.MAX_VALUE })
     }
 }

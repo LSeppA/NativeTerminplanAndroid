@@ -74,6 +74,22 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        model.onAppResumed()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        model.updateForegroundState(true)
+    }
+
+    override fun onStop() {
+        model.updateForegroundState(false)
+        super.onStop()
+    }
+
     private fun openCamera() {
         val file = File(cacheDir, "captures/plan-${System.currentTimeMillis()}.jpg")
         file.parentFile?.mkdirs()
@@ -85,14 +101,19 @@ class MainActivity : ComponentActivity() {
         val schedule = model.schedule
         val busy = model.busy
         val infoAccepted = model.infoAccepted
+        val refreshTick = model.refreshTick
+        val isForeground = model.isForeground
         val groups = schedule.groupBy { it.date }.toSortedMap()
-        var now by remember(schedule) { mutableLongStateOf(System.currentTimeMillis()) }
+        var now by remember(schedule, refreshTick) { mutableLongStateOf(System.currentTimeMillis()) }
         var selectedPhotoPath by remember { mutableStateOf<String?>(null) }
-        LaunchedEffect(schedule) {
+        LaunchedEffect(schedule, refreshTick, isForeground) {
+            if (!isForeground) return@LaunchedEffect
             while (true) {
                 now = System.currentTimeMillis()
                 val nextChange = nextAppointmentDisplayChange(schedule, now)
-                delay(nextChange?.minus(now)?.coerceAtLeast(1_000L) ?: 60_000L)
+                val wait = nextChange?.minus(now)?.coerceAtLeast(1_000L) ?: 60_000L
+                delay(wait.coerceAtMost(60_000L))
+                if (wait <= 60_000L) model.refreshSchedule()
             }
         }
         val next = appointmentForDisplay(schedule, now)

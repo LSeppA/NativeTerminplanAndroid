@@ -6,7 +6,7 @@ android {
     namespace = "at.goinon.badvigaun.terminplan"
     compileSdk = 37
     buildToolsVersion = "37.0.0"
-    defaultConfig { applicationId = "at.goinon.badvigaun.terminplan"; minSdk = 26; targetSdk = 37; versionCode = 20; versionName = "1.0.20" }
+    defaultConfig { applicationId = "at.goinon.badvigaun.terminplan"; minSdk = 26; targetSdk = 37; versionCode = 23; versionName = "1.0.23" }
     signingConfigs { getByName("debug") { storeFile = rootProject.file(".local/debug.keystore"); storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android" } }
     buildTypes {
         getByName("release") {
@@ -22,18 +22,10 @@ android {
         }
     }
     buildFeatures { compose = true }
-    packaging {
-        jniLibs {
-            keepDebugSymbols += setOf(
-                "**/libandroidx.graphics.path.so",
-                "**/libc++_shared.so",
-                "**/libmlkit_google_ocr_pipeline.so",
-                "**/libopencv_java5.so"
-            )
-        }
-    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    lint { warningsAsErrors = true }
 }
+kotlin { compilerOptions { allWarningsAsErrors.set(true) } }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")

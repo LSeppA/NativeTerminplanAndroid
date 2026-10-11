@@ -1,6 +1,7 @@
 package at.goinon.badvigaun.terminplan
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppointmentDisplayTest {
@@ -29,5 +30,22 @@ class AppointmentDisplayTest {
     @Test fun countsAppointmentsThatStartAtTheSameTime() {
         val parallel = first.copy(title = "Paralleler Termin")
         assertEquals(2, concurrentAppointmentCount(listOf(first, parallel, second), first))
+    }
+
+    @Test fun providesEveryFutureDisplayChangeForReliableWidgetScheduling() {
+        val beforeFirst = first.startTime!! - 1
+        val changes = appointmentDisplayChangeTimes(listOf(first, second), beforeFirst)
+
+        assertEquals(
+            listOf(
+                first.startTime!!,
+                first.endTime!! - 5 * 60_000L,
+                first.endTime!! + 1,
+                second.startTime!!,
+                second.endTime!! + 1
+            ),
+            changes
+        )
+        assertTrue(changes.zipWithNext().all { (left, right) -> left < right })
     }
 }

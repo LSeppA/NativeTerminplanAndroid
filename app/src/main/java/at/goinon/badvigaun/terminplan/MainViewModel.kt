@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -37,12 +38,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var infoAccepted by mutableStateOf(preferences.getBoolean("info_accepted", false))
         private set
     var cameraUri: Uri? = null
+    var refreshTick by mutableLongStateOf(0L)
+        private set
+    var isForeground by mutableStateOf(false)
+        private set
 
     init {
         showInfo = !infoAccepted
         photoStore.deleteUnreferenced(schedule)
-        Reminders.sync(application, schedule)
-        StatusNotification.sync(application, schedule)
     }
 
     fun scan(uri: Uri) {
@@ -98,7 +101,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearSchedule() {
         if (busy) return
-        Reminders.cancelAll(getApplication())
+        Reminders.cancelAll(getApplication(), clearDelivered = true)
         store.clear()
         photoStore.deleteAll()
         schedule = emptyList()
@@ -124,7 +127,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissImport() { showImport = false }
     fun dismissMessage() { message = null }
     fun showMessage(text: String) { message = text }
-    fun refreshStatusNotification() = StatusNotification.sync(getApplication(), schedule)
+    fun refreshStatusNotification() = AppointmentRefreshCoordinator.sync(getApplication(), schedule)
+
+    fun onAppResumed() {
+        schedule = store.load()
+        photoStore.deleteUnreferenced(schedule)
+        Reminders.sync(getApplication(), schedule)
+        AppointmentRefreshCoordinator.sync(getApplication(), schedule)
+        refreshTick++
+    }
+
+    fun refreshSchedule() {
+        val refreshed = store.load()
+        if (refreshed != schedule) {
+            schedule = refreshed
+            photoStore.deleteUnreferenced(schedule)
+        }
+        AppointmentRefreshCoordinator.sync(getApplication(), refreshed)
+    }
+
+    fun updateForegroundState(foreground: Boolean) { isForeground = foreground }
 
     override fun onCleared() {
         scanner.close()
