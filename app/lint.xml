@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- minSdk 26 always selects the adaptive v26 icon; retained PNGs are unused fallbacks. -->
+    <issue id="IconLauncherShape" severity="ignore" />
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+    <!-- AGP 9.4 targets Gradle 9.6; keep reporting plugin updates elsewhere. -->
+    <issue id="AndroidGradlePluginVersion">
+        <ignore path="../gradle/wrapper/gradle-wrapper.properties" />
+    </issue>
+</lint>
