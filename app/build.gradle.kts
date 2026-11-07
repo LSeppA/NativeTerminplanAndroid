@@ -6,7 +6,7 @@ android {
     namespace = "at.goinon.badvigaun.terminplan"
     compileSdk = 37
     buildToolsVersion = "37.0.0"
-    defaultConfig { applicationId = "at.goinon.badvigaun.terminplan"; minSdk = 26; targetSdk = 37; versionCode = 23; versionName = "1.0.23" }
+    defaultConfig { applicationId = "at.goinon.badvigaun.terminplan"; minSdk = 26; targetSdk = 37; versionCode = 28; versionName = "1.0.28" }
     signingConfigs { getByName("debug") { storeFile = rootProject.file(".local/debug.keystore"); storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android" } }
     buildTypes {
         getByName("release") {
